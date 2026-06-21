@@ -55,15 +55,31 @@ function SearchPage() {
     window.dispatchEvent(new Event("storage"));
   };
 
-
   // Rank Range states
-  const [rankRange, setRankRange] = useState("exact");
-  const [customMinRank, setCustomMinRank] = useState("");
-  const [customMaxRank, setCustomMaxRank] = useState("");
+  const [rankRange, setRankRange] = useState(() => {
+    return localStorage.getItem("kcet_user_rankRange") || "exact";
+  });
+  const [customMinRank, setCustomMinRank] = useState(() => {
+    return localStorage.getItem("kcet_user_customMinRank") || "";
+  });
+  const [customMaxRank, setCustomMaxRank] = useState(() => {
+    return localStorage.getItem("kcet_user_customMaxRank") || "";
+  });
 
   // Dynamic branch list states
   const [branches, setBranches] = useState<string[]>([]);
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("kcet_user_selectedBranches");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
   const [branchSearch, setBranchSearch] = useState("");
 
   // Shortlist map of active options
@@ -79,22 +95,48 @@ function SearchPage() {
   });
 
   // Result and statistics states
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [safeCount, setSafeCount] = useState(0);
-  const [moderateCount, setModerateCount] = useState(0);
-  const [riskyCount, setRiskyCount] = useState(0);
+  const [results, setResults] = useState<SearchResult[]>(() => {
+    try {
+      const stored = localStorage.getItem("kcet_user_results");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+  const [totalCount, setTotalCount] = useState(() => {
+    return Number(localStorage.getItem("kcet_user_totalCount") || "0");
+  });
+  const [safeCount, setSafeCount] = useState(() => {
+    return Number(localStorage.getItem("kcet_user_safeCount") || "0");
+  });
+  const [moderateCount, setModerateCount] = useState(() => {
+    return Number(localStorage.getItem("kcet_user_moderateCount") || "0");
+  });
+  const [riskyCount, setRiskyCount] = useState(() => {
+    return Number(localStorage.getItem("kcet_user_riskyCount") || "0");
+  });
 
   // UI status states
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(() => {
+    return localStorage.getItem("kcet_user_searched") === "true";
+  });
   const [loading, setLoading] = useState(false);
 
   // Fetch unique branches dynamically on component mount
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/branches`);
-        setBranches(response.data);
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        const response = await axios.get(`${apiUrl}/api/branches`);
+        if (Array.isArray(response.data)) {
+          setBranches(response.data);
+        } else {
+          console.error("Expected array from branches API, got:", response.data);
+        }
       } catch (error) {
         console.error("Failed to fetch branches:", error);
       }
@@ -139,6 +181,47 @@ function SearchPage() {
     setSavedMap(map);
   };
 
+  // Persist state changes to localStorage
+  useEffect(() => {
+    localStorage.setItem("kcet_user_selectedBranches", JSON.stringify(selectedBranches));
+  }, [selectedBranches]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_results", JSON.stringify(results));
+  }, [results]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_totalCount", String(totalCount));
+  }, [totalCount]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_safeCount", String(safeCount));
+  }, [safeCount]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_moderateCount", String(moderateCount));
+  }, [moderateCount]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_riskyCount", String(riskyCount));
+  }, [riskyCount]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_searched", String(searched));
+  }, [searched]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_rankRange", rankRange);
+  }, [rankRange]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_customMinRank", customMinRank);
+  }, [customMinRank]);
+
+  useEffect(() => {
+    localStorage.setItem("kcet_user_customMaxRank", customMaxRank);
+  }, [customMaxRank]);
+
   useEffect(() => {
     loadSavedMap();
     
@@ -147,10 +230,38 @@ function SearchPage() {
       const storedRank = localStorage.getItem("kcet_user_rank") || "";
       const storedCategory = localStorage.getItem("kcet_user_category") || "GM";
       const storedRound = localStorage.getItem("kcet_user_round") || "R3";
+      const storedRankRange = localStorage.getItem("kcet_user_rankRange") || "exact";
+      const storedMinRank = localStorage.getItem("kcet_user_customMinRank") || "";
+      const storedMaxRank = localStorage.getItem("kcet_user_customMaxRank") || "";
       
       setRank(storedRank);
       setCategory(storedCategory);
       setRound(storedRound);
+      setRankRange(storedRankRange);
+      setCustomMinRank(storedMinRank);
+      setCustomMaxRank(storedMaxRank);
+
+      try {
+        const storedBranches = localStorage.getItem("kcet_user_selectedBranches");
+        if (storedBranches) {
+          const parsed = JSON.parse(storedBranches);
+          if (Array.isArray(parsed)) setSelectedBranches(parsed);
+        }
+      } catch {}
+
+      try {
+        const storedResults = localStorage.getItem("kcet_user_results");
+        if (storedResults) {
+          const parsed = JSON.parse(storedResults);
+          if (Array.isArray(parsed)) setResults(parsed);
+        }
+      } catch {}
+
+      setTotalCount(Number(localStorage.getItem("kcet_user_totalCount") || "0"));
+      setSafeCount(Number(localStorage.getItem("kcet_user_safeCount") || "0"));
+      setModerateCount(Number(localStorage.getItem("kcet_user_moderateCount") || "0"));
+      setRiskyCount(Number(localStorage.getItem("kcet_user_riskyCount") || "0"));
+      setSearched(localStorage.getItem("kcet_user_searched") === "true");
     };
 
     window.addEventListener("storage", syncFromStorage);
@@ -429,7 +540,7 @@ function SearchPage() {
             </button>
           </div>
 
-          {/* Column 2: Spacious Grouped Branch Filter */}
+          {/* Column 2: Grouped Branch Filter */}
           <div className="lg:col-span-1 bg-white rounded-3xl shadow-xl border border-slate-100 p-6 flex flex-col gap-4">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -514,7 +625,7 @@ function SearchPage() {
                         </button>
                       </div>
 
-                      {/* Collapsible Branches List - No content truncation or clipping */}
+                      {/* Collapsible Branches List */}
                       {isExpanded && (
                         <div className="p-2.5 flex flex-col gap-1 bg-white">
                           {catBranches.map((branchName) => (
@@ -528,7 +639,6 @@ function SearchPage() {
                                 onChange={() => handleToggleBranch(branchName)}
                                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
                               />
-                              {/* Wrap text fully without truncation */}
                               <span className="text-[11px] font-semibold text-slate-600 leading-snug whitespace-normal break-words block pr-2">
                                 {toTitleCase(branchName)}
                               </span>
@@ -553,7 +663,7 @@ function SearchPage() {
             {searched && results.length > 0 ? (
               <div className="flex flex-col gap-6">
                 
-                {/* Results Statistics Dashboard (4-Column Layout) */}
+                {/* Results Statistics Dashboard */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {/* Total matches */}
                   <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3.5">
@@ -660,14 +770,12 @@ function SearchPage() {
                               )}
                             </div>
                             
-                            {/* Link to College Details Page - Full college name rendered, no clipping */}
                             <h3 className="font-extrabold text-lg text-slate-800 leading-snug group-hover:text-blue-700 transition-colors whitespace-normal break-words">
                               <Link to={`/college/${item.collegeCode}`} className="hover:underline">
                                 {toTitleCase(item.collegeName)}
                               </Link>
                             </h3>
                             
-                            {/* Branch Name wraps properly on multiple lines */}
                             <p className="text-sm font-semibold text-slate-500 mt-2 flex items-start gap-1.5 whitespace-normal break-words leading-relaxed">
                               <svg className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -717,7 +825,7 @@ function SearchPage() {
                                 {item.status}
                               </span>
                               
-                              {/* Option-specific Dream / Target / Safe bookmark pills with visual feedback */}
+                              {/* Option-specific Dream / Target / Safe bookmark pills */}
                               <div className="flex gap-1.5 mt-1">
                                 {["Dream", "Target", "Safe"].map((type) => {
                                   const isSelected = savedType === type;

@@ -29,9 +29,28 @@ export default function ComparisonPage() {
   const [loadingList, setLoadingList] = useState(true);
 
   // Selected parameters
-  const [collegeCodeA, setCollegeCodeA] = useState("");
-  const [collegeCodeB, setCollegeCodeB] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("GM");
+  const [collegeCodeA, setCollegeCodeA] = useState(() => {
+    return localStorage.getItem("kcet_compare_collegeCodeA") || "";
+  });
+  const [collegeCodeB, setCollegeCodeB] = useState(() => {
+    return localStorage.getItem("kcet_compare_collegeCodeB") || "";
+  });
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    return localStorage.getItem("kcet_compare_selectedCategory") || "GM";
+  });
+
+  // Persist state changes to localStorage
+  useEffect(() => {
+    if (collegeCodeA) localStorage.setItem("kcet_compare_collegeCodeA", collegeCodeA);
+  }, [collegeCodeA]);
+
+  useEffect(() => {
+    if (collegeCodeB) localStorage.setItem("kcet_compare_collegeCodeB", collegeCodeB);
+  }, [collegeCodeB]);
+
+  useEffect(() => {
+    if (selectedCategory) localStorage.setItem("kcet_compare_selectedCategory", selectedCategory);
+  }, [selectedCategory]);
 
   // Loaded data
   const [dataA, setDataA] = useState<CollegeData | null>(null);
@@ -43,18 +62,23 @@ export default function ComparisonPage() {
   useEffect(() => {
     const fetchColleges = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/colleges`);
-        const sorted = response.data.sort((a: CollegeItem, b: CollegeItem) =>
-          a.collegeName.localeCompare(b.collegeName)
-        );
-        setCollegesList(sorted);
-    
-        // Default selection: RVCE (E005) vs BMSCE (E006) if they exist
-        const defaultA = sorted.find((c: CollegeItem) => c.collegeCode === "E005") || sorted[0];
-        const defaultB = sorted.find((c: CollegeItem) => c.collegeCode === "E006") || sorted[1] || sorted[0];
-        
-        if (defaultA) setCollegeCodeA(defaultA.collegeCode);
-        if (defaultB) setCollegeCodeB(defaultB.collegeCode);
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        const response = await axios.get(`${apiUrl}/api/colleges`);
+        if (Array.isArray(response.data)) {
+          const sorted = response.data.sort((a: CollegeItem, b: CollegeItem) =>
+            a.collegeName.localeCompare(b.collegeName)
+          );
+          setCollegesList(sorted);
+      
+          // Default selection: RVCE (E005) vs BMSCE (E006) if they exist
+          const defaultA = sorted.find((c: CollegeItem) => c.collegeCode === "E005") || sorted[0];
+          const defaultB = sorted.find((c: CollegeItem) => c.collegeCode === "E006") || sorted[1] || sorted[0];
+          
+          if (!localStorage.getItem("kcet_compare_collegeCodeA") && defaultA) setCollegeCodeA(defaultA.collegeCode);
+          if (!localStorage.getItem("kcet_compare_collegeCodeB") && defaultB) setCollegeCodeB(defaultB.collegeCode);
+        } else {
+          console.error("Expected array from colleges API, got:", response.data);
+        }
       } catch (err) {
         console.error("Failed to fetch colleges list:", err);
       } finally {
@@ -268,7 +292,6 @@ export default function ComparisonPage() {
                         return val ? val.toLocaleString() : "-";
                       };
 
-                      // Helper to highlight which cutoff is more competitive (lower number)
                       const isMoreCompetitive = (valA?: number, valB?: number) => {
                         if (!valA || !valB) return "";
                         return valA < valB ? "A" : "B";
@@ -283,7 +306,6 @@ export default function ComparisonPage() {
                           <td className="px-6 py-4 font-bold text-slate-800 text-sm max-w-sm">
                             {branchName}
                           </td>
-                          {/* College A Round 1, 2, 3 */}
                           <td className={`px-4 py-4 text-center border-l border-slate-100 font-mono ${compR1 === "A" ? "text-blue-700 bg-blue-50/30 font-bold" : "text-slate-500"}`}>
                             {formatCutoff(cutA.R1)}
                           </td>
@@ -293,7 +315,6 @@ export default function ComparisonPage() {
                           <td className={`px-4 py-4 text-center font-mono ${compR3 === "A" ? "text-blue-700 bg-blue-50/30 font-bold" : "text-slate-500"}`}>
                             {formatCutoff(cutA.R3)}
                           </td>
-                          {/* College B Round 1, 2, 3 */}
                           <td className={`px-4 py-4 text-center border-l border-slate-100 font-mono ${compR1 === "B" ? "text-indigo-700 bg-indigo-50/30 font-bold" : "text-slate-500"}`}>
                             {formatCutoff(cutB.R1)}
                           </td>
