@@ -10,6 +10,8 @@ import { categorizeBranch } from "../utils/categorizeBranch";
 import { shortlistService } from "../utils/shortlistService";
 import { toTitleCase } from "../utils/titleCase";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 // TypeScript interface for search results returned from the API
 interface SearchResult {
   collegeCode: string;
@@ -40,19 +42,16 @@ function SearchPage() {
     } else {
       localStorage.removeItem("kcet_user_rank");
     }
-    window.dispatchEvent(new Event("storage"));
   };
 
   const handleCategoryChange = (val: string) => {
     setCategory(val);
     localStorage.setItem("kcet_user_category", val);
-    window.dispatchEvent(new Event("storage"));
   };
 
   const handleRoundChange = (val: string) => {
     setRound(val);
     localStorage.setItem("kcet_user_round", val);
-    window.dispatchEvent(new Event("storage"));
   };
 
   // Rank Range states
@@ -83,7 +82,15 @@ function SearchPage() {
   const [branchSearch, setBranchSearch] = useState("");
 
   // Shortlist map of active options
-  const [savedMap, setSavedMap] = useState<Record<string, string>>({});
+  const [savedMap, setSavedMap] = useState<Record<string, string>>(() => {
+    const list = shortlistService.get();
+    const map: Record<string, string> = {};
+    list.forEach((item) => {
+      const key = `${item.collegeCode}-${item.branch}-${item.category}-${item.round}`;
+      map[key] = item.shortlistType;
+    });
+    return map;
+  });
 
   // Accordion open/collapse states for branch categories
   // Only one open at a time
@@ -129,13 +136,13 @@ function SearchPage() {
     return localStorage.getItem("kcet_user_searched") === "true";
   });
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   // Fetch unique branches dynamically on component mount
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-        const response = await axios.get(`${apiUrl}/api/branches`);
+        const response = await axios.get(`${API_URL}/api/branches`);
         if (Array.isArray(response.data)) {
           setBranches(response.data);
         } else {
@@ -227,45 +234,8 @@ function SearchPage() {
   }, [customMaxRank]);
 
   useEffect(() => {
-    loadSavedMap();
-    
     const syncFromStorage = () => {
       loadSavedMap();
-      const storedRank = localStorage.getItem("kcet_user_rank") || "";
-      const storedCategory = localStorage.getItem("kcet_user_category") || "GM";
-      const storedRound = localStorage.getItem("kcet_user_round") || "R3";
-      const storedRankRange = localStorage.getItem("kcet_user_rankRange") || "exact";
-      const storedMinRank = localStorage.getItem("kcet_user_customMinRank") || "";
-      const storedMaxRank = localStorage.getItem("kcet_user_customMaxRank") || "";
-      
-      setRank(storedRank);
-      setCategory(storedCategory);
-      setRound(storedRound);
-      setRankRange(storedRankRange);
-      setCustomMinRank(storedMinRank);
-      setCustomMaxRank(storedMaxRank);
-
-      try {
-        const storedBranches = localStorage.getItem("kcet_user_selectedBranches");
-        if (storedBranches) {
-          const parsed = JSON.parse(storedBranches);
-          if (Array.isArray(parsed)) setSelectedBranches(parsed);
-        }
-      } catch {}
-
-      try {
-        const storedResults = localStorage.getItem("kcet_user_results");
-        if (storedResults) {
-          const parsed = JSON.parse(storedResults);
-          if (Array.isArray(parsed)) setResults(parsed);
-        }
-      } catch {}
-
-      setTotalCount(Number(localStorage.getItem("kcet_user_totalCount") || "0"));
-      setSafeCount(Number(localStorage.getItem("kcet_user_safeCount") || "0"));
-      setModerateCount(Number(localStorage.getItem("kcet_user_moderateCount") || "0"));
-      setRiskyCount(Number(localStorage.getItem("kcet_user_riskyCount") || "0"));
-      setSearched(localStorage.getItem("kcet_user_searched") === "true");
     };
 
     window.addEventListener("storage", syncFromStorage);
@@ -348,9 +318,10 @@ function SearchPage() {
     }
 
     setLoading(true);
+    setSearchError("");
     try {
       const response = await axios.get(
-        "http://localhost:8000/api/search",
+        `${API_URL}/api/search`,
         {
           params: {
             rank,
@@ -372,6 +343,7 @@ function SearchPage() {
       setSearched(true);
     } catch (error) {
       console.error("Failed to search colleges:", error);
+      setSearchError("Failed to fetch college predictions from the server. Please verify the backend is running and try again.");
     } finally {
       setLoading(false);
     }
@@ -420,7 +392,7 @@ function SearchPage() {
             KCET 2025 ALLOTMENT
           </span>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mt-3 mb-2 animate-fade-in">
-            KCET Counselling Predictor
+            NammaCounsellor
           </h1>
           <p className="text-blue-100 text-sm md:text-base max-w-xl mx-auto font-light">
             Enter your rank, filter by preferred branches and options, and find closest college matches.
@@ -594,7 +566,7 @@ function SearchPage() {
             {/* Scrollable accordion list */}
             <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400">
               <div className="flex flex-col gap-3">
-                {Object.entries(groupedBranches).some(([_, list]) => list.length > 0) ? (
+                {Object.values(groupedBranches).some((list) => list.length > 0) ? (
                   Object.entries(groupedBranches).map(([catName, catBranches]) => {
                     if (catBranches.length === 0) return null;
 
@@ -681,6 +653,18 @@ function SearchPage() {
 
           {/* Columns 3 & 4: Results Display */}
           <div className="lg:col-span-2">
+            
+            {searchError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-3xl p-5 mb-6 flex items-start gap-3 shadow-sm animate-fade-in">
+                <svg className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div className="flex-1">
+                  <h4 className="font-bold text-sm">Search Failed</h4>
+                  <p className="text-xs text-rose-700/90 mt-1 font-medium leading-relaxed">{searchError}</p>
+                </div>
+              </div>
+            )}
             
             {searched && results.length > 0 ? (
               <div className="flex flex-col gap-6">
@@ -854,7 +838,7 @@ function SearchPage() {
                                   return (
                                     <button
                                       key={type}
-                                      onClick={() => handleBookmark(item, type as any)}
+                                      onClick={() => handleBookmark(item, type as "Dream" | "Target" | "Safe")}
                                       className={`px-2.5 py-1 rounded-xl text-[9px] font-extrabold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
                                         isSelected
                                           ? type === "Dream"

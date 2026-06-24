@@ -4,25 +4,29 @@ export function toTitleCase(str: string): string {
   if (!str) return "";
   
   const abbreviations = ["AI", "ML", "IOT", "VLSI", "DEVOPS", "CSE", "ECE", "EEE", "IT", "AR/VR"];
+  const minorWords = ["and", "or", "but", "in", "on", "for", "with", "of", "to", "by", "a", "an", "the"];
   
   return str
     .toLowerCase()
     .split(" ")
-    .map((word) => {
-      // Keep brackets intact but check word content
-      const cleaned = word.replace(/[()]/g, "").toUpperCase();
-      if (abbreviations.includes(cleaned)) {
-        // preserve parentheses if they exist around the abbreviation
-        return word.toUpperCase();
+    .map((word, index) => {
+      const hasStartParen = word.startsWith("(");
+      const hasEndParen = word.endsWith(")");
+      
+      let core = word;
+      if (hasStartParen) core = core.slice(1);
+      if (hasEndParen) core = core.slice(0, -1);
+      
+      const cleanedCore = core.toUpperCase();
+      if (abbreviations.includes(cleanedCore)) {
+        core = cleanedCore;
+      } else if (minorWords.includes(core.toLowerCase()) && index > 0) {
+        core = core.toLowerCase();
+      } else if (core.length > 0) {
+        core = core.charAt(0).toUpperCase() + core.slice(1);
       }
       
-      // Keep minor words lowercase unless they are at the start
-      const minorWords = ["and", "or", "but", "in", "on", "for", "with", "of", "to", "by", "a", "an", "the"];
-      if (minorWords.includes(word.toLowerCase()) && word !== str.split(" ")[0]) {
-        return word.toLowerCase();
-      }
-
-      return word.charAt(0).toUpperCase() + word.slice(1);
+      return (hasStartParen ? "(" : "") + core + (hasEndParen ? ")" : "");
     })
     .join(" ");
 }

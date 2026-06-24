@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import axios from "axios";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 import { CATEGORY_OPTIONS } from "../constants/categories";
 
 interface CollegeItem {
@@ -62,8 +64,7 @@ export default function ComparisonPage() {
   useEffect(() => {
     const fetchColleges = async () => {
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-        const response = await axios.get(`${apiUrl}/api/colleges`);
+        const response = await axios.get(`${API_URL}/api/colleges`);
         if (Array.isArray(response.data)) {
           const sorted = response.data.sort((a: CollegeItem, b: CollegeItem) =>
             a.collegeName.localeCompare(b.collegeName)
@@ -103,8 +104,8 @@ export default function ComparisonPage() {
       setError("");
       try {
         const [resA, resB] = await Promise.all([
-          axios.get(`http://localhost:8000/api/colleges/${collegeCodeA}`),
-          axios.get(`http://localhost:8000/api/colleges/${collegeCodeB}`)
+          axios.get(`${API_URL}/api/colleges/${collegeCodeA}`),
+          axios.get(`${API_URL}/api/colleges/${collegeCodeB}`)
         ]);
         setDataA(resA.data);
         setDataB(resB.data);

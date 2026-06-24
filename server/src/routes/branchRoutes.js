@@ -2,17 +2,12 @@ const express = require("express");
 const router = express.Router();
 
 const cutoffs = require("../../data/cutoffs-all.json");
-const cleanBranch = require("../utils/cleanBranch");
 
 router.get("/", (req, res) => {
   const branches = [
     ...new Set(
-      cutoffs.map(item =>
-        cleanBranch(item.branch)
-      )
-      .filter(branch =>
-        branch.length> 0
-      )
+      cutoffs.map(item => item.branch)
+      .filter(branch => branch && branch.length > 0)
     )
   ].sort();
 
@@ -21,14 +16,14 @@ router.get("/", (req, res) => {
 
 router.get("/stats", (req, res) => {
   const totalColleges = new Set(cutoffs.map(c => c.collegeCode)).size;
-  const totalBranches = new Set(cutoffs.map(c => cleanBranch(c.branch))).size;
+  const totalBranches = new Set(cutoffs.map(c => c.branch).filter(b => b && b.length > 0)).size;
   
   // Calculate branch popularity (number of colleges offering it)
   const branchOfferings = {};
   const branchGM3Cutoffs = {};
   
   cutoffs.forEach(item => {
-    const cleanB = cleanBranch(item.branch);
+    const cleanB = item.branch;
     if (!cleanB) return;
 
     // offerings count

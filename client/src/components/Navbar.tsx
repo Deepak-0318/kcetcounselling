@@ -39,7 +39,7 @@ export default function Navbar() {
                 KC
               </div>
               <span className="font-extrabold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">
-                KCET Predictor
+                NammaCounsellor
               </span>
             </Link>
           </div>

@@ -7,7 +7,11 @@ import type { ShortlistItem } from "../utils/shortlistService";
 import { toTitleCase } from "../utils/titleCase";
 
 export default function SavedPage() {
-  const [shortlistItems, setShortlistItems] = useState<ShortlistItem[]>([]);
+  const [shortlistItems, setShortlistItems] = useState<ShortlistItem[]>(() => {
+    const list = shortlistService.get();
+    list.sort((a, b) => a.collegeName.localeCompare(b.collegeName));
+    return list;
+  });
 
   // Function to load bookmarks from shortlistService
   const loadShortlist = () => {
@@ -18,7 +22,6 @@ export default function SavedPage() {
   };
 
   useEffect(() => {
-    loadShortlist();
     window.addEventListener("storage", loadShortlist);
     return () => window.removeEventListener("storage", loadShortlist);
   }, []);
@@ -29,7 +32,15 @@ export default function SavedPage() {
   };
 
   const handleChangeType = (item: ShortlistItem, newType: "Dream" | "Target" | "Safe") => {
-    const { shortlistType: _, ...rest } = item;
+    const rest = {
+      collegeCode: item.collegeCode,
+      collegeName: item.collegeName,
+      branch: item.branch,
+      category: item.category,
+      round: item.round,
+      cutoff: item.cutoff,
+      status: item.status
+    };
     shortlistService.save(rest, newType);
     loadShortlist();
   };

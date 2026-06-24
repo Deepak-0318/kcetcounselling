@@ -65,7 +65,7 @@ const searchColleges = (req, res) => {
       }
 
       // Filter by selected branches if any (using normalized branch names)
-      if (branchList.length > 0 && !branchList.includes(cleanBranch(record.branch))) {
+      if (branchList.length > 0 && !branchList.includes(record.branch)) {
         return false;
       }
 
@@ -88,7 +88,7 @@ const searchColleges = (req, res) => {
 
       return {
         ...record,
-        branch: cleanBranch(record.branch),
+        branch: record.branch,
         status
       };
     });

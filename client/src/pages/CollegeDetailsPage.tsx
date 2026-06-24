@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 import { CATEGORY_OPTIONS } from "../constants/categories";
 import { CATEGORY_DESCRIPTIONS } from "../constants/categoryDescriptions";
 import { shortlistService } from "../utils/shortlistService";
@@ -37,7 +39,15 @@ export default function CollegeDetailsPage() {
     return localStorage.getItem("kcet_user_rank") || "";
   });
 
-  const [savedMap, setSavedMap] = useState<Record<string, "Dream" | "Target" | "Safe">>({});
+  const [savedMap, setSavedMap] = useState<Record<string, "Dream" | "Target" | "Safe">>(() => {
+    const list = shortlistService.get();
+    const map: Record<string, "Dream" | "Target" | "Safe"> = {};
+    list.forEach((item) => {
+      const key = `${item.collegeCode}-${item.branch}-${item.category}-${item.round}`;
+      map[key] = item.shortlistType;
+    });
+    return map;
+  });
 
   const userRank = Number(rankInput) || 0;
 
@@ -56,7 +66,7 @@ export default function CollegeDetailsPage() {
     const fetchCollegeDetails = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/colleges/${collegeCode}`);
+        const response = await axios.get(`${API_URL}/api/colleges/${collegeCode}`);
         setCollegeData(response.data);
         setError("");
       } catch (err) {
@@ -73,7 +83,6 @@ export default function CollegeDetailsPage() {
   }, [collegeCode]);
 
   useEffect(() => {
-    loadSavedMap();
     window.addEventListener("storage", loadSavedMap);
     return () => window.removeEventListener("storage", loadSavedMap);
   }, []);

@@ -15,51 +15,7 @@ function cleanBranch(rawBranch) {
   
   let branch = rawBranch.toUpperCase().trim();
 
-  // 1. Strip address/location prefixes using START_KEYWORDS
-  let earliestIndex = -1;
-  
-  for (const keyword of START_KEYWORDS) {
-    const idx = branch.indexOf(keyword);
-    if (idx !== -1) {
-      if (earliestIndex === -1 || idx < earliestIndex) {
-        earliestIndex = idx;
-      }
-    }
-  }
-  
-  if (earliestIndex !== -1) {
-    const prefix = branch.substring(0, earliestIndex).trim();
-    
-    // Check if the prefix is actually an address or location garbage
-    const hasAddressIndicators = (str) => {
-      const addressKeywords = /(VILLAGE|POST|ROAD|LAYOUT|TQ|DIST|MAIN|CAMPUS|OFFICE|VTU|RURAL|URBAN|BENGALURU|BENALURU|BANGALORE|UNIVERSITY|\b\d{5,6}\b)/i;
-      if (addressKeywords.test(str)) return true;
-      if (str.includes(",") || /\d/.test(str)) return true;
-      // If it is long and has multiple words, it is likely address garbage
-      if (str.split(/\s+/).length > 2 && str.length > 15) return true;
-      return false;
-    };
-
-    if (prefix && hasAddressIndicators(prefix)) {
-      branch = branch.substring(earliestIndex);
-    }
-  }
-
-  // 2. Remove leading degree prefixes
-  branch = branch
-    .replace(/^(B\.?\s*TECH\s+IN|BTECH\s+IN)\s+/g, "")
-    .replace(/^(B\.?\s*PLAN\s+IN|BPLAN\s+IN)\s+/g, "")
-    .replace(/^(B\.?\s*TECH\b|BTECH\b)\s*/g, "")
-    .trim();
-
-  // Remove HONS prefix/suffix
-  branch = branch.replace(/^[(\s]*HONS[)\s]*/gi, "").replace(/[(\s]*HONS[)\s]*$/gi, "");
-
-  if (branch === "B.PLAN" || branch === "BPLAN") {
-    branch = "PLANNING";
-  }
-
-  // 3. OCR spacing and character normalization
+  // 1. Spacing and Spelling Corrections (First Phase)
   branch = branch
     .replace(/\s+/g, " ")
     .replace(/&/g, "AND")
@@ -67,7 +23,7 @@ function cleanBranch(rawBranch) {
     .replace(/\bENG\b\.?/g, "ENGINEERING")
     .replace(/\bEDUN\b\.?/g, "EDUCATION")
     
-    // Spacing and spelling correction regexes for common terms
+    // Character spacing spacing / OCR corrections
     .replace(/A\s*R\s*T\s*I\s*F\s*I\s*C\s*I?\s*A\s*L/g, "ARTIFICIAL")
     .replace(/I\s*N\s*D\s*U\s*S\s*T\s*R\s*I\s*A\s*L/g, "INDUSTRIAL")
     .replace(/I\s*N\s*T\s*E\s*G\s*[RT]\s*A\s*T\s*E\s*D/g, "INTEGRATED")
@@ -75,11 +31,12 @@ function cleanBranch(rawBranch) {
     .replace(/B\s*I\s*O\s*T\s*E\s*C\s*H\s*N\s*O\s*L\s*O\s*G\s*Y/g, "BIOTECHNOLOGY")
     .replace(/B\s*I\s*O\s*-\s*T\s*E\s*C\s*H\s*N\s*O\s*L\s*O\s*G\s*Y/g, "BIOTECHNOLOGY")
     
-    // Spelling errors
+    // Spelling corrections
     .replace(/VIRUTAL/g, "VIRTUAL")
     .replace(/MATHAMATICS/g, "MATHEMATICS")
+    .replace(/COMPUTER\s+SICENCE/g, "COMPUTER SCIENCE")
     
-    // Split words / spacing errors
+    // Split words / spacing spacing corrections
     .replace(/COMMUNICATIO N/g, "COMMUNICATION")
     .replace(/INSTRUMENTATI ON/g, "INSTRUMENTATION")
     .replace(/TELECOMMUNIC ATION/g, "TELECOMMUNICATION")
@@ -106,28 +63,82 @@ function cleanBranch(rawBranch) {
     .replace(/E XCLUSIVELY/g, "EXCLUSIVELY")
     .replace(/INTERNE T/g, "INTERNET")
     
-    // Clean parenthesis spacing and formatting
     .replace(/\s*\(\s*/g, " (")
     .replace(/\s*\)\s*/g, ")")
     .trim();
 
-  // Consolidation of AI/ML acronyms
-  branch = branch
-    .replace(/\b(AIML|AI\s*AND\s*ML|AI\s*&\s*ML)\b/g, "ARTIFICIAL INTELLIGENCE AND MACHINE LEARNING")
-    .replace(/\bAI\b/g, "ARTIFICIAL INTELLIGENCE");
+  // 2. Strip address/location prefixes using word boundaries (\b)
+  let earliestIndex = -1;
+  
+  for (const keyword of START_KEYWORDS) {
+    const regex = new RegExp(`\\b${keyword}\\b`);
+    const match = branch.match(regex);
+    if (match && match.index !== undefined) {
+      const idx = match.index;
+      if (earliestIndex === -1 || idx < earliestIndex) {
+        earliestIndex = idx;
+      }
+    }
+  }
+  
+  if (earliestIndex !== -1) {
+    const prefix = branch.substring(0, earliestIndex).trim();
+    
+    const hasAddressIndicators = (str) => {
+      const addressKeywords = /(VILLAGE|POST|ROAD|LAYOUT|TQ|DIST|MAIN|CAMPUS|OFFICE|VTU|RURAL|URBAN|BENGALURU|BENALURU|BANGALORE|UNIVERSITY|\b\d{5,6}\b)/i;
+      if (addressKeywords.test(str)) return true;
+      if (str.includes(",") || /\d/.test(str)) return true;
+      if (str.split(/\s+/).length > 2 && str.length > 15) return true;
+      return false;
+    };
 
-  // Cleanup parenthesis mismatch
+    if (prefix && hasAddressIndicators(prefix)) {
+      branch = branch.substring(earliestIndex);
+    }
+  }
+
+  // 3. Remove leading degree prefixes and HONS
+  branch = branch
+    .replace(/^(B\.?\s*TECH\s+IN|BTECH\s+IN)\s+/g, "")
+    .replace(/^(B\.?\s*PLAN\s+IN|BPLAN\s+IN)\s+/g, "")
+    .replace(/^(B\.?\s*TECH\b|BTECH\b)\s*/g, "")
+    .trim();
+
+  branch = branch.replace(/^[(\s]*HONS[)\s]*/gi, "").replace(/[(\s]*HONS[)\s]*$/gi, "");
+
+  if (branch === "B.PLAN" || branch === "BPLAN") {
+    branch = "PLANNING";
+  }
+
+  // 4. Mismatch Parentheses Cleanup
   if (branch.endsWith(")") && (branch.match(/\(/g) || []).length < (branch.match(/\)/g) || []).length) {
     branch = branch.slice(0, -1).trim();
   }
   if (branch.startsWith("(") && (branch.match(/\(/g) || []).length > (branch.match(/\)/g) || []).length) {
     branch = branch.slice(1).trim();
   }
-  
-  // Strip outer brackets again if any
   branch = branch.replace(/^\((.*)\)$/, "$1").trim();
 
-  // 4. Normalize specific variants
+  // 5. Normalization & Branch Consolidation
+  
+  // AI / ML variants
+  branch = branch
+    .replace(/\b(AIML|AI\s*AND\s*ML|AI\s*&\s*ML)\b/g, "ARTIFICIAL INTELLIGENCE AND MACHINE LEARNING")
+    .replace(/\bAI\b/g, "ARTIFICIAL INTELLIGENCE");
+
+  // IOT -> INTERNET OF THINGS
+  branch = branch.replace(/\bIOT\b/g, "INTERNET OF THINGS");
+
+  // DS -> DATA SCIENCE
+  branch = branch
+    .replace(/\bDATA SCIENCES\b/g, "DATA SCIENCE")
+    .replace(/\bDS\b/g, "DATA SCIENCE");
+
+  // Cyber Security variants
+  branch = branch
+    .replace(/\bCYBERSECURITY\b/g, "CYBER SECURITY")
+    .replace(/\bCYBER\s+SECURITY\b/g, "CYBER SECURITY");
+
   // Bio/Biotech variants
   if (branch === "BIO-TECHNOLOGY" || branch === "BIO- TECHNOLOGY" || branch === "BIOTECHNOLOGY") {
     branch = "BIOTECHNOLOGY";
@@ -135,10 +146,7 @@ function cleanBranch(rawBranch) {
   if (branch === "BIO-MEDICAL ENGINEERING" || branch === "BIOMEDICAL ENGINEERING") {
     branch = "BIOMEDICAL ENGINEERING";
   }
-  if (branch.includes("BIOTECHNOLOGY") && branch.includes("BIO-ENGINEERING")) {
-    branch = "BIOTECHNOLOGY AND BIO-ENGINEERING";
-  }
-  if (branch.includes("BIOTECHNOLOGY") && branch.includes("BIO- ENGINEERING")) {
+  if (branch.includes("BIOTECHNOLOGY") && (branch.includes("BIO-ENGINEERING") || branch.includes("BIO- ENGINEERING"))) {
     branch = "BIOTECHNOLOGY AND BIO-ENGINEERING";
   }
 
@@ -162,14 +170,12 @@ function cleanBranch(rawBranch) {
     branch = "COMPUTER SCIENCE AND ENGINEERING";
   }
   
-  // Align Computer Science with Computer Science and Engineering for sub-branches
   branch = branch
     .replace(/^COMPUTER SCIENCE\s*\(/g, "COMPUTER SCIENCE AND ENGINEERING (")
     .replace(/^COMPUTER SCIENCE AND TECHNOLOGY/g, "COMPUTER SCIENCE AND ENGINEERING")
-    .replace(/^COMPUTER SICENCE/g, "COMPUTER SCIENCE")
     .replace(/^COMPUTER SCIENCE AND ENGINEERING\s*\(/g, "COMPUTER SCIENCE AND ENGINEERING (")
     
-    // Clean up specific sub-branches
+    // Clean sub-branches
     .replace(/CLOU D/g, "CLOUD")
     .replace(/SOF TWARE/g, "SOFTWARE")
     .replace(/D EV/g, "DEV")
@@ -187,9 +193,6 @@ function cleanBranch(rawBranch) {
   }
   if (branch === "ROBOTIC ENGINEERING" || branch === "ROBOTICS ENGINEERING") {
     branch = "ROBOTICS ENGINEERING";
-  }
-  if (branch === "DATA SCIENCES" || branch === "DATA SCIENCE") {
-    branch = "DATA SCIENCE";
   }
   if (branch === "BACHELOR OF DESIGN (INTERIOR DESIGN)") {
     branch = "DESIGN (INTERIOR DESIGN)";
