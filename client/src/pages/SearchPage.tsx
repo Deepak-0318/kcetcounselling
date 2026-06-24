@@ -86,11 +86,15 @@ function SearchPage() {
   const [savedMap, setSavedMap] = useState<Record<string, string>>({});
 
   // Accordion open/collapse states for branch categories
+  // Only one open at a time
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     Object.keys(BRANCH_CATEGORIES).forEach((cat) => {
-      initial[cat] = true;
+      initial[cat] = false;
     });
+    // Optionally expand first category by default
+    const keys = Object.keys(BRANCH_CATEGORIES);
+    if (keys.length > 0) initial[keys[0]] = true;
     return initial;
   });
 
@@ -310,10 +314,20 @@ function SearchPage() {
   };
 
   const toggleAccordion = (cat: string) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [cat]: !prev[cat],
-    }));
+    // Only one open at a time: close all others, then toggle this one.
+    setExpandedCategories((prev) => {
+      const newState: Record<string, boolean> = {};
+      // Set all false
+      Object.keys(prev).forEach((key) => {
+        newState[key] = false;
+      });
+      // If this category was open, close it (by leaving it false)
+      // If it was closed, open it
+      if (!prev[cat]) {
+        newState[cat] = true;
+      }
+      return newState;
+    });
   };
 
   const handleSearch = async () => {
@@ -540,9 +554,10 @@ function SearchPage() {
             </button>
           </div>
 
-          {/* Column 2: Grouped Branch Filter */}
-          <div className="lg:col-span-1 bg-white rounded-3xl shadow-xl border border-slate-100 p-6 flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          {/* Column 2: Grouped Branch Filter - Redesigned with fixed height and modern styling */}
+          <div className="lg:col-span-1 bg-white rounded-3xl shadow-xl border border-slate-100 p-6 flex flex-col gap-4 h-[500px] md:h-[540px]">
+            {/* Header with sticky controls */}
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 shrink-0">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -554,66 +569,71 @@ function SearchPage() {
               </span>
             </div>
 
-            {/* Search within branches */}
-            <input
-              type="text"
-              placeholder="Search branches..."
-              value={branchSearch}
-              onChange={(e) => setBranchSearch(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
-            />
+            {/* Sticky search and controls */}
+            <div className="shrink-0 space-y-3">
+              {/* Search within branches */}
+              <input
+                type="text"
+                placeholder="Search branches..."
+                value={branchSearch}
+                onChange={(e) => setBranchSearch(e.target.value)}
+                className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium"
+              />
 
-            {/* Toggle Utilities */}
-            <div className="flex justify-between text-xs font-bold text-blue-600 border-b border-slate-50 pb-2">
-              <button onClick={handleSelectAllBranches} className="hover:text-blue-800 active:scale-95 transition-all">
-                Select All
-              </button>
-              <button onClick={handleClearAllBranches} className="hover:text-blue-800 active:scale-95 transition-all">
-                Clear All
-              </button>
+              {/* Toggle Utilities */}
+              <div className="flex justify-between text-xs font-bold text-blue-600">
+                <button onClick={handleSelectAllBranches} className="hover:text-blue-800 active:scale-95 transition-all">
+                  Select All
+                </button>
+                <button onClick={handleClearAllBranches} className="hover:text-blue-800 active:scale-95 transition-all">
+                  Clear All
+                </button>
+              </div>
             </div>
 
-            {/* Expanded Accordion List Container with Internal Scroll */}
-            <div className="max-h-[480px] overflow-y-auto pr-1 flex flex-col gap-3 scrollbar-thin">
-              {Object.entries(groupedBranches).some(([_, list]) => list.length > 0) ? (
-                Object.entries(groupedBranches).map(([catName, catBranches]) => {
-                  if (catBranches.length === 0) return null;
+            {/* Scrollable accordion list */}
+            <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400">
+              <div className="flex flex-col gap-3">
+                {Object.entries(groupedBranches).some(([_, list]) => list.length > 0) ? (
+                  Object.entries(groupedBranches).map(([catName, catBranches]) => {
+                    if (catBranches.length === 0) return null;
 
-                  // Auto-expand if the search query matches branches inside this category
-                  const isExpanded = branchSearch ? true : expandedCategories[catName];
-                  const isAllSelected = catBranches.every((b) => selectedBranches.includes(b));
-                  const isSomeSelected = catBranches.some((b) => selectedBranches.includes(b)) && !isAllSelected;
-                  const totalCount = totalCategoryCounts[catName] || 0;
+                    const isExpanded = expandedCategories[catName] || false;
+                    const isAllSelected = catBranches.every((b) => selectedBranches.includes(b));
+                    const isSomeSelected = catBranches.some((b) => selectedBranches.includes(b)) && !isAllSelected;
+                    const totalCount = totalCategoryCounts[catName] || 0;
 
-                  return (
-                    <div key={catName} className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/20">
-                      {/* Group Header showing Category counts */}
-                      <div className="flex items-center justify-between px-3 py-2.5 bg-slate-50 border-b border-slate-100 gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {/* Group Checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={isAllSelected}
-                            ref={(el) => {
-                              if (el) {
-                                el.indeterminate = isSomeSelected;
-                              }
-                            }}
-                            onChange={() => handleToggleCategoryBranches(catName, catBranches)}
-                            className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
-                          />
-                          <span className="text-xs font-black text-slate-700 leading-tight truncate">
-                            {catName} ({totalCount})
-                          </span>
-                        </div>
-                        
-                        {/* Collapse button */}
-                        <button
+                    return (
+                      <div key={catName} className="border border-slate-100 rounded-2xl overflow-hidden bg-slate-50/20 shadow-sm">
+                        {/* Accordion Header */}
+                        <div
+                          className="flex items-center justify-between px-3 py-2.5 bg-slate-50 border-b border-slate-100 gap-2 cursor-pointer select-none hover:bg-slate-100/70 transition-colors"
                           onClick={() => toggleAccordion(catName)}
-                          className="text-slate-400 hover:text-slate-600 focus:outline-none p-1 shrink-0"
                         >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {/* Category Checkbox (indeterminate) */}
+                            <input
+                              type="checkbox"
+                              checked={isAllSelected}
+                              ref={(el) => {
+                                if (el) {
+                                  el.indeterminate = isSomeSelected;
+                                }
+                              }}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleCategoryBranches(catName, catBranches);
+                              }}
+                              className="h-4.5 w-4.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                            />
+                            <span className="text-xs font-black text-slate-700 leading-tight truncate">
+                              {catName} <span className="font-normal text-slate-400">({totalCount})</span>
+                            </span>
+                          </div>
+                          
+                          {/* Expand/collapse icon */}
                           <svg
-                            className={`w-4 h-4 transition-transform duration-200 ${
+                            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
                               isExpanded ? "rotate-180" : ""
                             }`}
                             fill="none"
@@ -622,38 +642,40 @@ function SearchPage() {
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
                           </svg>
-                        </button>
-                      </div>
-
-                      {/* Collapsible Branches List */}
-                      {isExpanded && (
-                        <div className="p-2.5 flex flex-col gap-1 bg-white">
-                          {catBranches.map((branchName) => (
-                            <label
-                              key={branchName}
-                              className="flex items-start gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-all border border-transparent hover:border-slate-50 text-left"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedBranches.includes(branchName)}
-                                onChange={() => handleToggleBranch(branchName)}
-                                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
-                              />
-                              <span className="text-[11px] font-semibold text-slate-600 leading-snug whitespace-normal break-words block pr-2">
-                                {toTitleCase(branchName)}
-                              </span>
-                            </label>
-                          ))}
                         </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-center py-8 text-xs font-medium text-slate-400 animate-pulse">
-                  No categories match your search
-                </div>
-              )}
+
+                        {/* Collapsible Branches List with internal scroll */}
+                        {isExpanded && (
+                          <div className="p-2.5 max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400">
+                            <div className="flex flex-col gap-1">
+                              {catBranches.map((branchName) => (
+                                <label
+                                  key={branchName}
+                                  className="flex items-start gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-all border border-transparent hover:border-slate-200 text-left"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedBranches.includes(branchName)}
+                                    onChange={() => handleToggleBranch(branchName)}
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
+                                  />
+                                  <span className="text-[11px] font-semibold text-slate-600 leading-snug whitespace-normal break-words block pr-2">
+                                    {toTitleCase(branchName)}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-xs font-medium text-slate-400 animate-pulse">
+                    No categories match your search
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
